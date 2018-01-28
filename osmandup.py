@@ -68,6 +68,10 @@ def get_netlist():
 def get_loclist(directory):
 	result = []
 
+	if not os.path.isdir(directory):
+		sys.stderr.write('\x1b[31m[!]\x1b[0m ' + directory + ' is not a directory\n')
+		exit(-1)
+
 	base_dir = os.path.join(directory, 'osmand')
 
 	if not os.path.isdir(base_dir):
@@ -174,35 +178,23 @@ if __name__ == '__main__':
 		exit(0)
 
 	if len(sys.argv) == 3 and sys.argv[2] == '--list':
-		if not os.path.isdir(sys.argv[1]):
-			sys.stderr.write('\x1b[31m[!]\x1b[0m ' + sys.argv[1] + ' is not a directory\n')
-			exit(-1)
 		loclist = get_loclist(sys.argv[1])
 		print_loclist(loclist)
 		exit(0)
 
 	if len(sys.argv) == 3 and sys.argv[2] == '--update':
-		if not os.path.isdir(sys.argv[1]):
-			sys.stderr.write('\x1b[31m[!]\x1b[0m ' + sys.argv[1] + ' is not a directory\n')
-			exit(-1)
 		loclist = get_loclist(sys.argv[1])
 		netlist = get_netlist()
 		update(loclist, netlist)
 		exit(0)
 
 	if len(sys.argv) == 3 and sys.argv[2] == '--clean':
-		if not os.path.isdir(sys.argv[1]):
-			sys.stderr.write('\x1b[31m[!]\x1b[0m ' + sys.argv[1] + ' is not a directory\n')
-			exit(-1)
 		loclist = get_loclist(sys.argv[1])
 		netlist = get_netlist()
 		clean(loclist, netlist, sys.argv[1])
 		exit(0)
 
 	if len(sys.argv) == 4 and sys.argv[2] == '--install':
-		if not os.path.isdir(sys.argv[1]):
-			sys.stderr.write('\x1b[31m[!]\x1b[0m ' + sys.argv[1] + ' is not a directory\n')
-			exit(-1)
 		loclist = get_loclist(sys.argv[1])
 		netlist = get_netlist()
 		install(loclist, netlist, sys.argv[1], sys.argv[3])
