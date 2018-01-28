@@ -3,10 +3,8 @@
 import sys
 import os
 import urllib2
-import lxml.etree
 import datetime
 import re
-import bisect
 import time
 import zipfile
 import StringIO
