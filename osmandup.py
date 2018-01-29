@@ -66,25 +66,15 @@ def get_netlist():
 def get_loclist(directory):
 	result = []
 
-	if not os.path.isdir(directory):
-		sys.stderr.write('\x1b[31m[!]\x1b[0m ' + directory + ' is not a directory\n')
-		exit(-1)
-
-	base_dir = os.path.join(directory, 'osmand')
-
-	if not os.path.isdir(base_dir):
-		sys.stderr.write('\x1b[31m[!]\x1b[0m unable to find map directory in ' + directory + '\n')
-		exit(-1)
-
 	files = []
-	for (dir_path, dir_names, file_names) in os.walk(base_dir):
+	for (dir_path, dir_names, file_names) in os.walk(directory):
 		files.extend(file_names)
 		break
 
 	files = [name for name in files if name.endswith('.obf')]
 
 	for name in files:
-		full_path = os.path.join(base_dir, name)
+		full_path = os.path.join(directory, name)
 		modi_time = os.path.getmtime(full_path)
 		file_size = os.path.getsize(full_path)
 
@@ -133,7 +123,7 @@ def update(loclist, netlist):
 	for loc_entry in loclist:
 		if dic.has_key(loc_entry[0]):
 			net_entry = netlist[dic[loc_entry[0]]]
-			net_time = int(time.mktime(datetime.datetime.strptime(net_entry[2], "%d.%m.%Y").timetuple()))
+			net_time = int(time.mktime(datetime.datetime.strptime(net_entry[2], '%d.%m.%Y').timetuple()))
 			if loc_entry[2] < net_time:
 				sys.stdout.write('\x1b[32m[+]\x1b[0m updating ' + loc_entry[0] + ' [' + net_entry[2] + ']\n')
 				install_map(net_entry[1], loc_entry[1])
@@ -148,7 +138,7 @@ def clean(loclist, netlist, directory):
 	for net_entry in netlist:
 		if net_entry[0].find('World_base') != -1:
 			sys.stdout.write('\x1b[32m[+]\x1b[0m installing ' + net_entry[0] + ' [' + net_entry[2] + ']\n')
-			install_map(net_entry[1], os.path.join(directory, 'osmand', net_entry[0]))
+			install_map(net_entry[1], os.path.join(directory, net_entry[0]))
 			break
 
 def install(loclist, netlist, directory, pattern):
@@ -159,7 +149,7 @@ def install(loclist, netlist, directory, pattern):
 		if m is not None:
 			if dic.has_key(net_entry[0]):
 				loc_entry = loclist[dic[net_entry[0]]]
-				net_time = int(time.mktime(datetime.datetime.strptime(net_entry[2], "%d.%m.%Y").timetuple()))
+				net_time = int(time.mktime(datetime.datetime.strptime(net_entry[2], '%d.%m.%Y').timetuple()))
 				if loc_entry[2] < net_time:
 					sys.stdout.write('\x1b[32m[+]\x1b[0m installing ' + net_entry[0] + ' [' + net_entry[2] + ']\n')
 					install_map(net_entry[1], loc_entry[1])
@@ -167,35 +157,44 @@ def install(loclist, netlist, directory, pattern):
 					sys.stdout.write('\x1b[36m[+]\x1b[0m ' + net_entry[0] + 'is already installed and up to date\n')
 			else:
 				sys.stdout.write('\x1b[32m[+]\x1b[0m installing ' + net_entry[0] + ' [' + net_entry[2] + ']\n')
-				install_map(net_entry[1], os.path.join(directory, 'osmand', net_entry[0]))
+				install_map(net_entry[1], os.path.join(directory, net_entry[0]))
 
 if __name__ == '__main__':
-	if len(sys.argv) == 3 and sys.argv[1] == '--search':
+	if len(sys.argv) < 3:
+		print_usage(sys.argv[0])
+
+	if sys.argv[1] == '--search':
 		netlist = get_netlist()
 		search_netlist(netlist, sys.argv[2])
 		exit(0)
 
-	if len(sys.argv) == 3 and sys.argv[2] == '--list':
-		loclist = get_loclist(sys.argv[1])
+	directory = sys.argv[1]
+	if not os.path.isdir(directory):
+		sys.stderr.write('\x1b[31m[!]\x1b[0m ' + directory + ' is not a directory\n')
+		exit(-1)
+
+	if os.path.isdir(os.path.join(directory, 'osmand')):
+		directory = os.path.join(directory, 'osmand')
+
+	loclist = get_loclist(directory)
+	
+	if sys.argv[2] == '--list':
 		print_loclist(loclist)
 		exit(0)
 
-	if len(sys.argv) == 3 and sys.argv[2] == '--update':
-		loclist = get_loclist(sys.argv[1])
+	if sys.argv[2] == '--update':
 		netlist = get_netlist()
 		update(loclist, netlist)
 		exit(0)
 
-	if len(sys.argv) == 3 and sys.argv[2] == '--clean':
-		loclist = get_loclist(sys.argv[1])
+	if sys.argv[2] == '--clean':
 		netlist = get_netlist()
-		clean(loclist, netlist, sys.argv[1])
+		clean(loclist, netlist, directory)
 		exit(0)
 
-	if len(sys.argv) == 4 and sys.argv[2] == '--install':
-		loclist = get_loclist(sys.argv[1])
+	if sys.argv[2] == '--install' and len(sys.argv) == 4:
 		netlist = get_netlist()
-		install(loclist, netlist, sys.argv[1], sys.argv[3])
+		install(loclist, netlist, directory, sys.argv[3])
 		exit(0)
 
 	print_usage(sys.argv[0])
