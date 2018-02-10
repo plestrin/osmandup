@@ -46,7 +46,7 @@ def get_netlist():
 	result = []
 
 	page_list = urllib2.urlopen('https://download.osmand.net/list.php').read()
-	
+
 	(line, line_offset) = get_line(page_list, 0)
 	while line != None:
 		(item_file, item_offset) = get_item(line, 0)
@@ -177,7 +177,7 @@ if __name__ == '__main__':
 		directory = os.path.join(directory, 'osmand')
 
 	loclist = get_loclist(directory)
-	
+
 	if sys.argv[2] == '--list':
 		print_loclist(loclist)
 		exit(0)
