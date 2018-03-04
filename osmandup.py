@@ -128,7 +128,7 @@ def update(loclist, netlist):
 				sys.stdout.write('\x1b[32m[+]\x1b[0m updating ' + loc_entry[0] + ' [' + net_entry[2] + ']\n')
 				install_map(net_entry[1], loc_entry[1])
 			else:
-				sys.stdout.write('\x1b[36m[+]\x1b[0m ' + loc_entry[0] + 'is already up to date\n')
+				sys.stdout.write('\x1b[36m[.]\x1b[0m ' + loc_entry[0] + 'is already up to date\n')
 		else:
 			sys.stdout.write('\x1b[31m[!]\x1b[0m ' + loc_entry[0] + ' is not distributed any more\n')
 
@@ -154,7 +154,7 @@ def install(loclist, netlist, directory, pattern):
 					sys.stdout.write('\x1b[32m[+]\x1b[0m installing ' + net_entry[0] + ' [' + net_entry[2] + ']\n')
 					install_map(net_entry[1], loc_entry[1])
 				else:
-					sys.stdout.write('\x1b[36m[+]\x1b[0m ' + net_entry[0] + 'is already installed and up to date\n')
+					sys.stdout.write('\x1b[36m[.]\x1b[0m ' + net_entry[0] + 'is already installed and up to date\n')
 			else:
 				sys.stdout.write('\x1b[32m[+]\x1b[0m installing ' + net_entry[0] + ' [' + net_entry[2] + ']\n')
 				install_map(net_entry[1], os.path.join(directory, net_entry[0]))
@@ -173,8 +173,14 @@ if __name__ == '__main__':
 		sys.stderr.write('\x1b[31m[!]\x1b[0m ' + directory + ' is not a directory\n')
 		exit(-1)
 
-	if os.path.isdir(os.path.join(directory, 'osmand')):
-		directory = os.path.join(directory, 'osmand')
+	while True:
+		if os.path.isdir(os.path.join(directory, 'osmand')):
+			directory = os.path.join(directory, 'osmand')
+		else:
+			break
+
+	if os.path.basename(directory) != 'osmand':
+		sys.stdout.write('\x1b[33m[~]\x1b[0m ' + directory + ' does not seem to be an osmand directory\n')
 
 	loclist = get_loclist(directory)
 
