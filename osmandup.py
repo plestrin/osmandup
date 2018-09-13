@@ -128,7 +128,7 @@ def update(loclist, netlist):
 				sys.stdout.write('\x1b[32m[+]\x1b[0m updating ' + loc_entry[0] + ' [' + net_entry[2] + ']\n')
 				install_map(net_entry[1], loc_entry[1])
 			else:
-				sys.stdout.write('\x1b[36m[.]\x1b[0m ' + loc_entry[0] + 'is already up to date\n')
+				sys.stdout.write('\x1b[36m[.]\x1b[0m ' + loc_entry[0] + ' is already up to date\n')
 		else:
 			sys.stdout.write('\x1b[31m[!]\x1b[0m ' + loc_entry[0] + ' is not distributed any more\n')
 
