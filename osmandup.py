@@ -18,7 +18,7 @@ def get_name(item_file):
 	return item_file[item_file.find('>') + 1:-8]
 
 def get_url(item_file):
-	return 'https://download.osmand.net' + item_file[9:item_file.find('"',10)]
+	return ('https://download.osmand.net' + item_file[9:item_file.find('"',10)]).replace('&amp;', '&')
 
 def get_item(line, offset):
 	i = line.find('<td>', offset)
@@ -29,7 +29,7 @@ def get_item(line, offset):
 	if j == -1:
 		sys.stderr.write('\x1b[31m[!]\x1b[0m syntax error in list.php: corrupted item\n')
 		return (None, offset)
-	return (line[i:j], j + 5)
+	return (line[i:j].strip(), j + 5)
 
 def get_line(data, offset):
 	i = data.find('<tr>', offset)
