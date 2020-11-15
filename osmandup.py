@@ -1,13 +1,13 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 import sys
 import os
-import urllib2
+import urllib.request
 import datetime
 import re
 import time
 import zipfile
-import StringIO
+from io import BytesIO
 import shutil
 
 def print_usage(prog_name):
@@ -15,51 +15,65 @@ def print_usage(prog_name):
 	exit(-1)
 
 def get_name(item_file):
-	return item_file[item_file.find('>') + 1:-8]
+	return item_file[item_file.find(b'>') + 1:-8].decode('utf-8')
 
 def get_url(item_file):
-	return ('https://download.osmand.net' + item_file[9:item_file.find('"',10)]).replace('&amp;', '&')
+	path = item_file[9:item_file.find(b'"', 10)].decode('utf-8')
+	path = path.replace('&amp;', '&')
+	return 'https://download.osmand.net' + path
+
+def get_size(item_size):
+	return int(float(item_size) * 1048576)
 
 def get_item(line, offset):
-	i = line.find('<td>', offset)
+	i = line.find(b'<td>', offset)
 	if i == -1:
 		return (None, offset)
 	i += 4
-	j = line.find('</td>', i)
+	j = line.find(b'</td>', i)
 	if j == -1:
 		sys.stderr.write('\x1b[31m[!]\x1b[0m syntax error in list.php: corrupted item\n')
 		return (None, offset)
 	return (line[i:j].strip(), j + 5)
 
-def get_line(data, offset):
-	i = data.find('<tr>', offset)
-	if i == -1:
-		return (None, offset)
-	i += 4
-	j = data.find('</tr>', i)
-	if j == -1:
-		sys.stderr.write('\x1b[31m[!]\x1b[0m syntax error in list.php: corrupted line\n')
-		return (None, offset)
-	return (data[i:j], j + 5)
+def get_lines(data):
+	offset = 0
+	while True:
+		i = data.find(b'<tr>', offset)
+		if i == -1:
+			break
+		i += 4
+		j = data.find(b'</tr>', i)
+		if j == -1:
+			sys.stderr.write('\x1b[31m[!]\x1b[0m syntax error in list.php: corrupted line\n')
+			break
+		yield data[i:j]
+		offset = j + 5
 
 def get_netlist():
 	result = []
 
-	page_list = urllib2.urlopen('https://download.osmand.net/list.php').read()
+	page_list = urllib.request.urlopen('https://download.osmand.net/list.php').read()
 
-	(line, line_offset) = get_line(page_list, 0)
-	while line != None:
+	for line in get_lines(page_list):
 		(item_file, item_offset) = get_item(line, 0)
+		if item_file is None:
+			continue
 		(item_date, item_offset) = get_item(line, item_offset)
+		if item_date is None:
+			continue
 		(item_size, item_offset) = get_item(line, item_offset)
+		if item_size is None:
+			continue
 		(item_desc, item_offset) = get_item(line, item_offset)
+		if item_desc is None:
+			continue
 
-		if item_file != None and item_date != None and item_size != None and item_desc != None:
-			if item_desc != '' and not item_desc.startswith('Voice'):
-				url = get_url(item_file)
-				name = get_name(item_file)
-				result.append([name, url, item_date, item_desc, int(float(item_size) * 1048576)])
-		(line, line_offset) = get_line(page_list, line_offset)
+		if item_desc and not item_desc.startswith(b'Voice'):
+			url = get_url(item_file)
+			name = get_name(item_file)
+			size = get_size(item_size)
+			result.append([name, url, item_date.decode('utf-8'), item_desc.decode('utf-8'), size])
 
 	return sorted(result, key=lambda entry: entry[0])
 
@@ -67,7 +81,7 @@ def get_loclist(directory):
 	result = []
 
 	files = []
-	for (dir_path, dir_names, file_names) in os.walk(directory):
+	for (_, _, file_names) in os.walk(directory):
 		files.extend(file_names)
 		break
 
@@ -84,11 +98,11 @@ def get_loclist(directory):
 
 def get_readable_size(size):
 	if size > 1073741824:
-		return str(size / 1073741824) + 'G'
+		return str(size // 1073741824) + ' GB'
 	if size > 1048576:
-		return str(size / 1048576) + 'M'
-	elif size > 1024:
-		return str(size / 1024) + 'K'
+		return str(size // 1048576) + ' MB'
+	if size > 1024:
+		return str(size // 1024) + ' KB'
 	return str(size)
 
 def print_loclist(loclist):
@@ -97,7 +111,7 @@ def print_loclist(loclist):
 		date = datetime.datetime.fromtimestamp(entry[2]).strftime('%Y-%m-%d')
 		sys.stdout.write(date + ' ' + entry[0][:-4].replace('_', ' ') + '\n')
 		tot_size += entry[3]
-	sys.stdout.write('Total size is \x1b[1m' + get_readable_size(tot_size) + '\x1b[0m\n')
+	sys.stdout.write('Total installed size is \x1b[1m' + get_readable_size(tot_size) + '\x1b[0m\n')
 
 def search_netlist(netlist, pattern):
 	tot_size = 0
@@ -106,11 +120,11 @@ def search_netlist(netlist, pattern):
 		if m is not None:
 			sys.stdout.write(entry[2] + ' ' + entry[0][:-4].replace('_', ' ').replace(m.group(0), '\x1b[31m' + m.group(0) + '\x1b[0m') + '\n')
 			tot_size += entry[4]
-	sys.stdout.write('Total size is \x1b[1m' + get_readable_size(tot_size) + '\x1b[0m\n')
+	sys.stdout.write('Total compressed size is \x1b[1m' + get_readable_size(tot_size) + '\x1b[0m\n')
 
 def install_map(url, path):
-	request = urllib2.urlopen(url)
-	buf = StringIO.StringIO(request.read())
+	request = urllib.request.urlopen(url)
+	buf = BytesIO(request.read())
 	zfile = zipfile.ZipFile(buf)
 	for member in zfile.infolist():
 		if path.endswith(member.filename):
@@ -121,7 +135,7 @@ def update(loclist, netlist):
 	dic = {net_entry[0] : i for i, net_entry in enumerate(netlist)}
 
 	for loc_entry in loclist:
-		if dic.has_key(loc_entry[0]):
+		if loc_entry[0] in dic:
 			net_entry = netlist[dic[loc_entry[0]]]
 			net_time = int(time.mktime(datetime.datetime.strptime(net_entry[2], '%d.%m.%Y').timetuple()))
 			if loc_entry[2] < net_time:
@@ -139,7 +153,7 @@ def clean(loclist, netlist, directory):
 		if net_entry[0].find('World_base') != -1:
 			sys.stdout.write('\x1b[32m[+]\x1b[0m installing ' + net_entry[0] + ' [' + net_entry[2] + ']\n')
 			install_map(net_entry[1], os.path.join(directory, net_entry[0]))
-			break
+			return
 
 def install(loclist, netlist, directory, pattern):
 	dic = {loc_entry[0] : i for i, loc_entry in enumerate(loclist)}
@@ -147,7 +161,7 @@ def install(loclist, netlist, directory, pattern):
 	for net_entry in netlist:
 		m = re.search(pattern, net_entry[0], re.IGNORECASE)
 		if m is not None:
-			if dic.has_key(net_entry[0]):
+			if net_entry[0] in dic:
 				loc_entry = loclist[dic[net_entry[0]]]
 				net_time = int(time.mktime(datetime.datetime.strptime(net_entry[2], '%d.%m.%Y').timetuple()))
 				if loc_entry[2] < net_time:
@@ -164,8 +178,7 @@ if __name__ == '__main__':
 		print_usage(sys.argv[0])
 
 	if sys.argv[1] == '--search':
-		netlist = get_netlist()
-		search_netlist(netlist, sys.argv[2])
+		search_netlist(get_netlist(), sys.argv[2])
 		exit(0)
 
 	directory = sys.argv[1]
@@ -189,18 +202,15 @@ if __name__ == '__main__':
 		exit(0)
 
 	if sys.argv[2] == '--update':
-		netlist = get_netlist()
-		update(loclist, netlist)
+		update(loclist, get_netlist())
 		exit(0)
 
 	if sys.argv[2] == '--clean':
-		netlist = get_netlist()
-		clean(loclist, netlist, directory)
+		clean(loclist, get_netlist(), directory)
 		exit(0)
 
 	if sys.argv[2] == '--install' and len(sys.argv) == 4:
-		netlist = get_netlist()
-		install(loclist, netlist, directory, sys.argv[3])
+		install(loclist, get_netlist(), directory, sys.argv[3])
 		exit(0)
 
 	print_usage(sys.argv[0])
