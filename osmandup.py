@@ -10,8 +10,47 @@ import zipfile
 from io import BytesIO
 import shutil
 
+USE_COLOR = True
+
+def str_red(str_):
+	if USE_COLOR:
+		return '\x1b[31m' + str_ + '\x1b[0m'
+	return str_
+
+def str_green(str_):
+	if USE_COLOR:
+		return '\x1b[32m' + str_ + '\x1b[0m'
+	return str_
+
+def str_orange(str_):
+	if USE_COLOR:
+		return '\x1b[33m' + str_ + '\x1b[0m'
+	return str_
+
+def str_blue(str_):
+	if USE_COLOR:
+		return '\x1b[36m' + str_ + '\x1b[0m'
+	return str_
+
+def str_bold(str_):
+	if USE_COLOR:
+		return '\x1b[1m' + str_ + '\x1b[0m'
+	return str_
+
+def print_error(msg):
+	sys.stderr.write(str_red('[!]') + ' ' + msg + '\n')
+
+def print_success(msg):
+	sys.stdout.write(str_green('[+]') + ' ' + msg + '\n')
+
+def print_warning(msg):
+	sys.stdout.write(str_orange('[~]') + ' ' + msg + '\n')
+
+def print_skip(msg):
+	sys.stdout.write(str_blue('[.]') + ' ' + msg + '\n')
+
 def print_usage(prog_name):
-	sys.stdout.write('Usage: ' + prog_name + ' {--search regex, directory {--clean,--install regex,--list,--update}}\n')
+	print('Usage: ' + prog_name + ' {--search regex, directory {--clean,--install regex,--list,--update}}')
 	exit(-1)
 
 def get_name(item_file):
@@ -32,7 +71,7 @@ def get_item(line, offset):
 	i += 4
 	j = line.find(b'</td>', i)
 	if j == -1:
-		sys.stderr.write('\x1b[31m[!]\x1b[0m syntax error in list.php: corrupted item\n')
+		print_error('syntax error in list.php: corrupted item')
 		return (None, offset)
 	return (line[i:j].strip(), j + 5)
 
@@ -45,7 +84,7 @@ def get_lines(data):
 		i += 4
 		j = data.find(b'</tr>', i)
 		if j == -1:
-			sys.stderr.write('\x1b[31m[!]\x1b[0m syntax error in list.php: corrupted line\n')
+			print_error('syntax error in list.php: corrupted line')
 			break
 		yield data[i:j]
 		offset = j + 5
@@ -109,18 +148,18 @@ def print_loclist(loclist):
 	tot_size = 0
 	for entry in loclist:
 		date = datetime.datetime.fromtimestamp(entry[2]).strftime('%Y-%m-%d')
-		sys.stdout.write(date + ' ' + entry[0][:-4].replace('_', ' ') + '\n')
+		print(date + ' ' + entry[0][:-4].replace('_', ' '))
 		tot_size += entry[3]
-	sys.stdout.write('Total installed size is \x1b[1m' + get_readable_size(tot_size) + '\x1b[0m\n')
+	print('Total installed size is ' + str_bold(get_readable_size(tot_size)))
 
 def search_netlist(netlist, pattern):
 	tot_size = 0
 	for entry in netlist:
 		m = re.search(pattern, entry[0], re.IGNORECASE)
 		if m is not None:
-			sys.stdout.write(entry[2] + ' ' + entry[0][:-4].replace('_', ' ').replace(m.group(0), '\x1b[31m' + m.group(0) + '\x1b[0m') + '\n')
+			print(entry[2] + ' ' + entry[0][:-4].replace('_', ' ').replace(m.group(0), str_red(m.group(0))))
 			tot_size += entry[4]
-	sys.stdout.write('Total compressed size is \x1b[1m' + get_readable_size(tot_size) + '\x1b[0m\n')
+	print('Total compressed size is ' + str_bold(get_readable_size(tot_size)))
 
 def install_map(url, path):
 	request = urllib.request.urlopen(url)
@@ -139,19 +178,19 @@ def update(loclist, netlist):
 			net_entry = netlist[dic[loc_entry[0]]]
 			net_time = int(time.mktime(datetime.datetime.strptime(net_entry[2], '%d.%m.%Y').timetuple()))
 			if loc_entry[2] < net_time:
-				sys.stdout.write('\x1b[32m[+]\x1b[0m updating ' + loc_entry[0] + ' [' + net_entry[2] + ']\n')
+				print_success('updating ' + loc_entry[0] + ' [' + net_entry[2] + ']')
 				install_map(net_entry[1], loc_entry[1])
 			else:
-				sys.stdout.write('\x1b[36m[.]\x1b[0m ' + loc_entry[0] + ' is already up to date\n')
+				print_skip(loc_entry[0] + ' is already up to date')
 		else:
-			sys.stdout.write('\x1b[31m[!]\x1b[0m ' + loc_entry[0] + ' is not distributed any more\n')
+			print_error('is not distributed any more')
 
 def clean(loclist, netlist, directory):
 	for loc_entry in loclist:
 		os.remove(loc_entry[1])
 	for net_entry in netlist:
 		if net_entry[0].find('World_base') != -1:
-			sys.stdout.write('\x1b[32m[+]\x1b[0m installing ' + net_entry[0] + ' [' + net_entry[2] + ']\n')
+			print_success('installing ' + net_entry[0] + ' [' + net_entry[2] + ']')
 			install_map(net_entry[1], os.path.join(directory, net_entry[0]))
 			return
 
@@ -165,15 +204,18 @@ def install(loclist, netlist, directory, pattern):
 				loc_entry = loclist[dic[net_entry[0]]]
 				net_time = int(time.mktime(datetime.datetime.strptime(net_entry[2], '%d.%m.%Y').timetuple()))
 				if loc_entry[2] < net_time:
-					sys.stdout.write('\x1b[32m[+]\x1b[0m installing ' + net_entry[0] + ' [' + net_entry[2] + ']\n')
+					print_success('installing ' + net_entry[0] + ' [' + net_entry[2] + ']')
 					install_map(net_entry[1], loc_entry[1])
 				else:
-					sys.stdout.write('\x1b[36m[.]\x1b[0m ' + net_entry[0] + 'is already installed and up to date\n')
+					print_skip(net_entry[0] + 'is already installed and up to date')
 			else:
-				sys.stdout.write('\x1b[32m[+]\x1b[0m installing ' + net_entry[0] + ' [' + net_entry[2] + ']\n')
+				print_success('installing ' + net_entry[0] + ' [' + net_entry[2] + ']')
 				install_map(net_entry[1], os.path.join(directory, net_entry[0]))
 
 if __name__ == '__main__':
+	if os.environ.get('NO_COLOR'):
+		USE_COLOR = False
+
 	if len(sys.argv) < 3:
 		print_usage(sys.argv[0])
 
@@ -183,7 +225,7 @@ if __name__ == '__main__':
 
 	directory = sys.argv[1]
 	if not os.path.isdir(directory):
-		sys.stderr.write('\x1b[31m[!]\x1b[0m ' + directory + ' is not a directory\n')
+		print_error(directory + ' is not a directory')
 		exit(-1)
 
 	while True:
@@ -193,7 +235,7 @@ if __name__ == '__main__':
 			break
 
 	if os.path.basename(directory) != 'osmand':
-		sys.stdout.write('\x1b[33m[~]\x1b[0m ' + directory + ' does not seem to be an osmand directory\n')
+		print_warning(directory + ' does not seem to be an osmand directory')
 
 	loclist = get_loclist(directory)
 
